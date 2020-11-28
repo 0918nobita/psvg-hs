@@ -1,10 +1,10 @@
 name:                psvg-hs
 version:             0.1.0.0
-github:              "githubuser/psvg-hs"
+github:              "0918nobita/psvg-hs"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2020 Author name here"
+author:              "Kodai Matsumoto"
+maintainer:          "nobita.0918@gmail.com"
+copyright:           "2020 Kodai Matsumoto"
 
 extra-source-files:
 - README.md

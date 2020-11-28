@@ -4,16 +4,16 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 21f315ebb96db5cc7d6b115bdf9a65e4e7149f2e2337f7841aca5d75ed0baa57
+-- hash: 423118f3e6960931f231e100552d1d3cf1dc88f78becb0fd8ef7ae3ce4407661
 
 name:           psvg-hs
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/psvg-hs#readme>
-homepage:       https://github.com/githubuser/psvg-hs#readme
-bug-reports:    https://github.com/githubuser/psvg-hs/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2020 Author name here
+homepage:       https://github.com/0918nobita/psvg-hs#readme
+bug-reports:    https://github.com/0918nobita/psvg-hs/issues
+author:         Kodai Matsumoto
+maintainer:     nobita.0918@gmail.com
+copyright:      2020 Kodai Matsumoto
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -23,7 +23,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/psvg-hs
+  location: https://github.com/0918nobita/psvg-hs
 
 library
   exposed-modules:
