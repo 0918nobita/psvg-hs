@@ -2,20 +2,43 @@ module Lib
     ( someFunc
     ) where
 
-import           Control.Monad              (forM_)
-import           Control.Monad.ST           (runST)
-import           Control.Monad.State.Strict (StateT (..), runStateT)
-import           Data.STRef                 (modifySTRef, newSTRef, readSTRef)
-import           Debug.Trace                (traceShow)
-import           Text.Printf                (printf)
+import           Control.Monad    (forM_)
+import           Control.Monad.ST (runST)
+import qualified Data.Map         as M
+import           Data.STRef       (modifySTRef, newSTRef, readSTRef)
+import           Debug.Trace      (trace)
 
-type Parser s e a = StateT s (Either e) a
+type Start = Int
 
-runParser :: Parser s e a -> s -> Either e (a, s)
-runParser = runStateT
+type ParserId = Int
 
-char :: Char -> Parser String () Char
-char c = StateT parse
+data ParserContext a = ParserContext
+    { source :: String
+    , memory :: M.Map (Start, ParserId) (a, String)
+    }
+    deriving (Show)
+
+data Parser e a = Parser
+    { parserId :: ParserId
+    , parseFn  :: String -> Either e (a, String)
+    }
+
+runParser :: Parser e a -> ParserContext a -> Start -> Either e ((a, String), ParserContext a)
+runParser p context start =
+    let
+        memo = memory context
+        pId = parserId p
+        src = source context
+    in
+    case M.lookup (start, pId) memo of
+        Just success -> trace "Cache found" Right (success, context)
+        Nothing -> do
+            success <- trace "Parsing..." parseFn p $ drop start src
+            let newMemo = M.insert (start, pId) success memo
+            return (success, ParserContext { source = src, memory = newMemo })
+
+char :: Char -> Parser () Char
+char c = Parser { parserId = 1, parseFn = parse }
     where
         parse :: String -> Either () (Char, String)
         parse (head:tail)
@@ -23,24 +46,16 @@ char c = StateT parse
             | otherwise = Left ()
         parse _ = Left ()
 
-abcParser :: Parser String () String
-abcParser = do
-    a <- char 'a'
-    b <- char 'b'
-    c <- char 'c'
-    return [a, b, c]
-
 sum' :: [Int] -> Int
 sum' xs = runST $ do
     ref <- newSTRef 0
-    forM_ xs $ \i -> traceShow i modifySTRef ref (+ i)
+    forM_ xs $ modifySTRef ref . (+)
     readSTRef ref
 
 someFunc :: IO ()
 someFunc = do
-    let result = runParser abcParser "abcdef"
-    putStrLn $
-        case result of
-            Right (c, rest) -> printf "Parsed: %s, Rest: %s"  c rest
-            Left _          -> "Failed to parse"
+    case runParser (char 'a') (ParserContext { source = "abc", memory = M.empty }) 0 of
+        Right (_, context) ->
+            print $ runParser (char 'a') context 0
+        Left _ -> putStrLn "Left"
     print $ sum' [0..100]
