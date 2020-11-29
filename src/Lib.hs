@@ -6,6 +6,7 @@ import           Control.Monad              (forM_)
 import           Control.Monad.ST           (runST)
 import           Control.Monad.State.Strict (StateT (..), runStateT)
 import           Data.STRef                 (modifySTRef, newSTRef, readSTRef)
+import           Debug.Trace                (traceShow)
 import           Text.Printf                (printf)
 
 type Parser s e a = StateT s (Either e) a
@@ -32,7 +33,7 @@ abcParser = do
 sum' :: [Int] -> Int
 sum' xs = runST $ do
     ref <- newSTRef 0
-    forM_ xs $ modifySTRef ref . (+)
+    forM_ xs $ \i -> traceShow i modifySTRef ref (+ i)
     readSTRef ref
 
 someFunc :: IO ()
