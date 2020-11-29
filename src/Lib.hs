@@ -2,16 +2,19 @@ module Lib
     ( someFunc
     ) where
 
-import qualified Control.Monad.State.Strict as S
-import           Text.Printf
+import           Control.Monad              (forM_)
+import           Control.Monad.ST           (runST)
+import           Control.Monad.State.Strict (StateT (..), runStateT)
+import           Data.STRef                 (modifySTRef, newSTRef, readSTRef)
+import           Text.Printf                (printf)
 
-type Parser s e a = S.StateT s (Either e) a
+type Parser s e a = StateT s (Either e) a
 
 runParser :: Parser s e a -> s -> Either e (a, s)
-runParser = S.runStateT
+runParser = runStateT
 
 char :: Char -> Parser String () Char
-char c = S.StateT parse
+char c = StateT parse
     where
         parse :: String -> Either () (Char, String)
         parse (head:tail)
@@ -26,10 +29,17 @@ abcParser = do
     c <- char 'c'
     return [a, b, c]
 
+sum' :: [Int] -> Int
+sum' xs = runST $ do
+    ref <- newSTRef 0
+    forM_ xs $ modifySTRef ref . (+)
+    readSTRef ref
+
 someFunc :: IO ()
-someFunc =
+someFunc = do
     let result = runParser abcParser "abcdef"
-    in putStrLn
-        (case result of
+    putStrLn $
+        case result of
             Right (c, rest) -> printf "Parsed: %s, Rest: %s"  c rest
-            Left _          -> "Failed to parse")
+            Left _          -> "Failed to parse"
+    print $ sum' [0..100]
