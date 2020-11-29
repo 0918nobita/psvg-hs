@@ -1,21 +1,21 @@
 {-# LANGUAGE InstanceSigs        #-}
-{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Lib
     ( someFunc
     ) where
 
-import qualified Data.Map as M
+import qualified Data.Dynamic as DYN
+import qualified Data.Map     as M
 -- import Debug.Trace (trace)
 
 type Start = Int
 
 type ParserId = Int
 
-data ParserContext a = ParserContext
+data ParserContext = ParserContext
     { source :: String
-    , memory :: M.Map (Start, ParserId) (a, String)
+    , memory :: M.Map (Start, ParserId) (DYN.Dynamic, String)
     }
     deriving (Show)
 
@@ -31,7 +31,7 @@ instance Functor (Parser e) where
             parse :: String -> Either e (b, String)
             parse src = parseFn p src >>= (\(a, rest) -> Right (f a, rest))
 
-runParser :: Parser e a -> ParserContext a -> Start -> Either e ((a, String), ParserContext a)
+runParser :: DYN.Typeable a => Parser e a -> ParserContext -> Start -> Either e ((a, String), ParserContext)
 runParser p context start =
     let
         memo = memory context
@@ -39,26 +39,22 @@ runParser p context start =
     in
     case parserId p of
         Just pId ->
-            case M.lookup (start, pId) memo of
+            case M.lookup (start, pId) memo >>= (\(a, rest) -> DYN.fromDynamic a >>= (\dyn -> Just (dyn, rest))) of
                 Just success -> Right (success, context)
                 Nothing -> do
-                    success <- parseFn p $ drop start src
-                    let newMemo = M.insert (start, pId) success memo
-                    return (success, ParserContext { source = src, memory = newMemo })
+                    (a, rest) <- parseFn p $ drop start src
+                    let newMemo = M.insert (start, pId) (DYN.toDyn a, rest) memo
+                    return ((a, rest), ParserContext { source = src, memory = newMemo })
         Nothing -> do
             success <- parseFn p $ drop start src
             return (success, context)
 
-data ParsedData = ParsedChar Char
-    | ParsedStr String
-    deriving (Show)
-
-char :: Char -> Parser () ParsedData
+char :: Char -> Parser () Char
 char c = Parser { parserId = Just 1, parseFn = parse }
     where
-        parse :: String -> Either () (ParsedData, String)
+        parse :: String -> Either () (Char, String)
         parse (head:tail)
-            | head == c = Right (ParsedChar c, tail)
+            | head == c = Right (c, tail)
             | otherwise = Left ()
         parse _ = Left ()
 
@@ -66,10 +62,5 @@ someFunc :: IO ()
 someFunc = do
     case runParser (char 'a') (ParserContext { source = "abc", memory = M.empty }) 0 of
         Right (_, context) ->
-            let
-                mapper =
-                    \case
-                        ParsedChar c -> ParsedStr $ c:"!"
-                        x            -> x
-            in print $ runParser (mapper <$> char 'a') context 0
+            print $ runParser ((: "!") <$> char 'a') context 0
         Left _ -> putStrLn "Left"
