@@ -1,11 +1,12 @@
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Lib
     ( someFunc
     ) where
 
-import           Control.Monad    (forM_)
-import           Control.Monad.ST (runST)
-import qualified Data.Map         as M
-import           Data.STRef       (modifySTRef, newSTRef, readSTRef)
+import qualified Data.Map as M
 -- import Debug.Trace (trace)
 
 type Start = Int
@@ -22,6 +23,13 @@ data Parser e a = Parser
     { parserId :: Maybe ParserId
     , parseFn  :: String -> Either e (a, String)
     }
+
+instance Functor (Parser e) where
+    fmap :: forall a b . (a -> b) -> Parser e a -> Parser e b
+    fmap f p = Parser { parserId = Nothing, parseFn = parse }
+        where
+            parse :: String -> Either e (b, String)
+            parse src = parseFn p src >>= (\(a, rest) -> Right (f a, rest))
 
 runParser :: Parser e a -> ParserContext a -> Start -> Either e ((a, String), ParserContext a)
 runParser p context start =
@@ -41,25 +49,27 @@ runParser p context start =
             success <- parseFn p $ drop start src
             return (success, context)
 
-char :: Char -> Parser () Char
-char c = Parser { parserId = Nothing {- Just 1 -}, parseFn = parse }
+data ParsedData = ParsedChar Char
+    | ParsedStr String
+    deriving (Show)
+
+char :: Char -> Parser () ParsedData
+char c = Parser { parserId = Just 1, parseFn = parse }
     where
-        parse :: String -> Either () (Char, String)
+        parse :: String -> Either () (ParsedData, String)
         parse (head:tail)
-            | head == c = Right (c, tail)
+            | head == c = Right (ParsedChar c, tail)
             | otherwise = Left ()
         parse _ = Left ()
-
-sum' :: [Int] -> Int
-sum' xs = runST $ do
-    ref <- newSTRef 0
-    forM_ xs $ modifySTRef ref . (+)
-    readSTRef ref
 
 someFunc :: IO ()
 someFunc = do
     case runParser (char 'a') (ParserContext { source = "abc", memory = M.empty }) 0 of
         Right (_, context) ->
-            print $ runParser (char 'a') context 0
+            let
+                mapper =
+                    \case
+                        ParsedChar c -> ParsedStr $ c:"!"
+                        x            -> x
+            in print $ runParser (mapper <$> char 'a') context 0
         Left _ -> putStrLn "Left"
-    print $ sum' [0..100]
