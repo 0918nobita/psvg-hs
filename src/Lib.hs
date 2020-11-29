@@ -6,7 +6,7 @@ import           Control.Monad    (forM_)
 import           Control.Monad.ST (runST)
 import qualified Data.Map         as M
 import           Data.STRef       (modifySTRef, newSTRef, readSTRef)
-import           Debug.Trace      (trace)
+-- import Debug.Trace (trace)
 
 type Start = Int
 
@@ -19,7 +19,7 @@ data ParserContext a = ParserContext
     deriving (Show)
 
 data Parser e a = Parser
-    { parserId :: ParserId
+    { parserId :: Maybe ParserId
     , parseFn  :: String -> Either e (a, String)
     }
 
@@ -27,18 +27,22 @@ runParser :: Parser e a -> ParserContext a -> Start -> Either e ((a, String), Pa
 runParser p context start =
     let
         memo = memory context
-        pId = parserId p
         src = source context
     in
-    case M.lookup (start, pId) memo of
-        Just success -> trace "Cache found" Right (success, context)
+    case parserId p of
+        Just pId ->
+            case M.lookup (start, pId) memo of
+                Just success -> Right (success, context)
+                Nothing -> do
+                    success <- parseFn p $ drop start src
+                    let newMemo = M.insert (start, pId) success memo
+                    return (success, ParserContext { source = src, memory = newMemo })
         Nothing -> do
-            success <- trace "Parsing..." parseFn p $ drop start src
-            let newMemo = M.insert (start, pId) success memo
-            return (success, ParserContext { source = src, memory = newMemo })
+            success <- parseFn p $ drop start src
+            return (success, context)
 
 char :: Char -> Parser () Char
-char c = Parser { parserId = 1, parseFn = parse }
+char c = Parser { parserId = Nothing {- Just 1 -}, parseFn = parse }
     where
         parse :: String -> Either () (Char, String)
         parse (head:tail)
