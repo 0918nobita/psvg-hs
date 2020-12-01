@@ -8,25 +8,37 @@ module Lib
 import           Control.Monad.ST (ST, runST)
 import qualified Data.Bifunctor   as B
 import qualified Data.Map         as M
-import           Data.STRef       (STRef, newSTRef, readSTRef)
+import           Data.STRef       (STRef, modifySTRef, newSTRef, readSTRef)
 import           Debug.Trace      (trace)
-import           Text.Printf      (printf)
 
-takeValue :: Int -> STRef s (M.Map Int String) -> ST s (Maybe String)
-takeValue k ref = readSTRef ref >>= (return . M.lookup k)
+type ParseSuccess a = (a, String)
+
+type ParseResult e a = Either e (ParseSuccess a)
+
+type Memo a = M.Map String (ParseSuccess a)
+
+char :: Char -> String -> STRef s (Memo Char) -> ST s (ParseResult () Char)
+char c src memoRef = do
+    memo <- readSTRef memoRef
+    trace ("Parsing " ++ src ++ " ...") $
+        case M.lookup src memo of
+            Just success -> trace "  Cache found!" return (Right success)
+            Nothing ->
+                trace "  Cache not found" $ case src of
+                    head:tail | head == c ->
+                        let r = (head, tail) in
+                        modifySTRef memoRef (M.insert src r) >> return (Right r)
+                    _                     -> return (Left ())
 
 someFunc :: IO ()
 someFunc = do
-    let ref = newSTRef $ M.insert 0 "Zero" M.empty
-    print $ runST $ ref >>= takeValue 0
-    print $ runST $ ref >>= takeValue 1
-    {-
-    do
-        let p = char 'a'
-        print $ parseFn p "abc"
-        print $ parseFn (char 'b') "bxx"
-        print $ parseFn (p >> char 'b') "abc"
-    -}
+    let p = char 'a'
+    print $ runST $ do
+        memo <- newSTRef M.empty
+        p "abc" memo
+        p "axx" memo
+        p "abc" memo
+
 
 newtype Parser e a = Parser { parseFn :: String -> Either e (a, String) }
 
@@ -53,11 +65,3 @@ instance Monad (Parser e) where
             parse s = do
                 (a, rest) <- parseFn p s
                 parseFn (k a) rest
-
-char :: Char -> Parser () Char
-char c = Parser { parseFn = parse }
-    where
-        parse s = trace (printf "Parsing... %c" c) $
-            case s of
-                (head:tail) | head == c -> Right (c, tail)
-                _                       -> Left ()
