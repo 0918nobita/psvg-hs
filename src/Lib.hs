@@ -5,17 +5,21 @@ module Lib
     ( someFunc
     ) where
 
-import           Control.Monad.ST (runST)
+import           Control.Monad.ST (ST, runST)
 import qualified Data.Bifunctor   as B
-import           Data.STRef       (modifySTRef, newSTRef, readSTRef)
+import qualified Data.Map         as M
+import           Data.STRef       (STRef, newSTRef, readSTRef)
 import           Debug.Trace      (trace)
 import           Text.Printf      (printf)
 
+takeValue :: Int -> STRef s (M.Map Int String) -> ST s (Maybe String)
+takeValue k ref = readSTRef ref >>= (return . M.lookup k)
+
 someFunc :: IO ()
 someFunc = do
-    let action = \ref -> modifySTRef ref (+ 2) >> readSTRef ref
-    print $ runST $ newSTRef 1 >>= action
-    print $ runST $ newSTRef 5 >>= action
+    let ref = newSTRef $ M.insert 0 "Zero" M.empty
+    print $ runST $ ref >>= takeValue 0
+    print $ runST $ ref >>= takeValue 1
     {-
     do
         let p = char 'a'
