@@ -5,16 +5,25 @@ module Lib
     ( someFunc
     ) where
 
-import qualified Data.Bifunctor as B
-import           Debug.Trace    (trace)
-import           Text.Printf    (printf)
+import           Control.Monad.ST (runST)
+import qualified Data.Bifunctor   as B
+import           Data.STRef       (modifySTRef, newSTRef, readSTRef)
+import           Debug.Trace      (trace)
+import           Text.Printf      (printf)
 
 someFunc :: IO ()
 someFunc = do
-    let p = char 'a'
-    print $ parseFn p "abc"
-    print $ parseFn (char 'b') "bxx"
-    print $ parseFn (p >> char 'b') "abc"
+    print $ runST $ do
+        ref <- newSTRef 1
+        modifySTRef ref (+ 2)
+        readSTRef ref
+    {-
+    do
+        let p = char 'a'
+        print $ parseFn p "abc"
+        print $ parseFn (char 'b') "bxx"
+        print $ parseFn (p >> char 'b') "abc"
+    -}
 
 newtype Parser e a = Parser { parseFn :: String -> Either e (a, String) }
 
