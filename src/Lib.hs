@@ -14,9 +14,8 @@ import           Text.Printf      (printf)
 someFunc :: IO ()
 someFunc = do
     let action = \ref -> modifySTRef ref (+ 2) >> readSTRef ref
-    let st = newSTRef 1 >>= action
-    print $ runST $ fmap (* 10) st
-    print $ runST st
+    print $ runST $ newSTRef 1 >>= action
+    print $ runST $ newSTRef 5 >>= action
     {-
     do
         let p = char 'a'
